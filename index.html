@@ -3,54 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thodu Licence - Card Creator</title>
+    <title>Thodu Licence - Official Generator</title>
     <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #2c3e50; color: white; text-align: center; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: #ecf0f1; padding: 20px; border-radius: 15px; color: #333; }
-        #licenceCanvas { border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 100%; height: auto; margin-top: 20px; display: none;}
-        .controls { margin: 20px 0; padding: 20px; border: 2px dashed #bdc3c7; }
-        button { background: #e67e22; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .status { color: #2980b9; font-weight: bold; margin: 10px; }
-        #editFields { display: none; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; margin-top: 20px; }
-        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        :root { --card-bg: #fffcf2; --header-red: #b92b27; --text-blue: #003366; }
+        body { font-family: 'Arial', sans-serif; background: #2c3e50; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .setup-panel { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; width: 100%; max-width: 500px; text-align: center; }
+        
+        /* The Canvas Card Style */
+        #licenceCanvas { 
+            border-radius: 18px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4); 
+            display: none; 
+            max-width: 100%; 
+        }
+
+        input[type="file"] { margin: 15px 0; }
+        .edit-row { display: flex; justify-content: space-between; margin: 5px 0; font-size: 14px; }
+        input { padding: 5px; border: 1px solid #ccc; width: 60%; }
+        button { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px; width: 100%; }
+        #status { color: #e67e22; font-weight: bold; margin: 10px 0; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>THODU LICENCE GENERATOR</h1>
-    <p>Upload a scan to auto-fill your custom card</p>
-
-    <div class="controls">
-        <input type="file" id="fileInput" accept="image/*">
-        <div id="status" class="status">Ready to scan...</div>
+<div class="setup-panel">
+    <h2>Thodu Licence Generator</h2>
+    <input type="file" id="fileInput" accept="image/*">
+    <div id="status">Upload a doc to begin scan...</div>
+    
+    <div id="editor" style="display:none; text-align: left;">
+        <div class="edit-row">Name: <input type="text" id="f_name"></div>
+        <div class="edit-row">DL No: <input type="text" id="f_dl"></div>
+        <div class="edit-row">Address: <input type="text" id="f_addr"></div>
+        <div class="edit-row">DOB: <input type="text" id="f_dob"></div>
+        <button onclick="drawCard()">Update Card Graphics</button>
     </div>
-
-    <div id="editFields">
-        <label>Name: <input type="text" id="field_name" value="NAME SURNAME"></label>
-        <label>DL No: <input type="text" id="field_dl" value="MH12 20230000"></label>
-        <label>Address: <input type="text" id="field_add" value="YOUR ADDRESS HERE"></label>
-        <label>DOB: <input type="text" id="field_dob" value="DD-MM-YYYY"></label>
-        <button onclick="drawLicence()" style="grid-column: span 2; background: #27ae60;">Update Card Preview</button>
-    </div>
-
-    <canvas id="licenceCanvas" width="1000" height="630"></canvas>
-    <br>
-    <button id="downloadBtn" style="display:none; margin-top: 10px;" onclick="downloadCard()">Download Card Image</button>
 </div>
+
+<canvas id="licenceCanvas" width="1011" height="638"></canvas>
+<button id="dlBtn" style="display:none; margin-top:20px; width: 300px; background: #e67e22;" onclick="download()">Download Card Image</button>
 
 <script>
     const fileInput = document.getElementById('fileInput');
-    const status = document.getElementById('status');
     const canvas = document.getElementById('licenceCanvas');
     const ctx = canvas.getContext('2d');
 
     fileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
-        if (!file) return;
-
-        status.innerText = "⏳ Reading Document... Please wait.";
+        if(!file) return;
+        document.getElementById('status').innerText = "⏳ Scanning with AI...";
         
         const worker = Tesseract.createWorker();
         await worker.load();
@@ -58,68 +60,106 @@
         await worker.initialize('eng');
         const { data: { text } } = await worker.recognize(file);
         
-        // Simple logic to try and find data in the text
-        const lines = text.split('\n');
-        document.getElementById('field_name').value = lines[0] || "Extracted Name";
-        document.getElementById('field_dl').value = text.match(/[A-Z]{2}\d{2,13}/) || "MH12 000000";
+        // Auto-fill logic based on common patterns
+        const lines = text.split('\n').filter(l => l.trim().length > 3);
+        document.getElementById('f_name').value = lines[0] || "NAME SURNAME";
+        document.getElementById('f_dl').value = text.match(/[A-Z]{2}[0-9]{2,13}/) || "MH12 20240000000";
+        document.getElementById('f_addr').value = lines[2] || "123 STREET, CITY, PIN";
+        document.getElementById('f_dob').value = "15-08-1990";
 
-        status.innerText = "✅ Scan Complete! Adjust details below.";
-        document.getElementById('editFields').style.display = 'grid';
-        drawLicence();
+        document.getElementById('status').innerText = "✅ Scan Complete!";
+        document.getElementById('editor').style.display = "block";
+        drawCard();
         await worker.terminate();
     });
 
-    function drawLicence() {
-        // 1. Background
-        ctx.fillStyle = "#fffcf2";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // 2. Header Bar
-        ctx.fillStyle = "#c0392b";
-        ctx.fillRect(150, 40, 700, 60);
-        
-        ctx.fillStyle = "white";
-        ctx.font = "bold 24px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("THE UNION OF INDIA", 500, 65);
-        ctx.font = "bold 28px Arial";
-        ctx.fillText("THODU STATE MOTOR DRIVING LICENCE", 500, 93);
+    function drawCard() {
+        const name = document.getElementById('f_name').value.toUpperCase();
+        const dl = document.getElementById('f_dl').value.toUpperCase();
+        const addr = document.getElementById('f_addr').value.toUpperCase();
+        const dob = document.getElementById('f_dob').value;
 
-        // 3. Labels
+        // 1. Background Base
+        ctx.fillStyle = "#fffcf2";
+        ctx.fillRect(0, 0, 1011, 638);
+
+        // 2. Red Header Section
+        ctx.fillStyle = "#b92b27";
+        ctx.fillRect(160, 45, 690, 75);
+        ctx.fillStyle = "white";
+        ctx.font = "bold 22px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("THE UNION OF INDIA", 505, 75);
+        ctx.font = "bold 30px Arial";
+        ctx.fillText("THODU STATE MOTOR DRIVING LICENCE", 505, 108);
+
+        // 3. Side Icons (Placeholders for Emblem and Wheel)
+        // Emblem (Left)
+        ctx.fillStyle = "#d4af37";
+        ctx.font = "50px Arial";
+        ctx.fillText("🏛️", 80, 85); 
+        ctx.font = "bold 12px Arial";
+        ctx.fillText("सत्यमेव जयते", 80, 120);
+
+        // Wheel Logo (Right)
+        ctx.fillStyle = "#b92b27";
+        ctx.font = "70px Arial";
+        ctx.fillText("⚙️", 920, 95);
+
+        // 4. Content Text - Blue Style
         ctx.textAlign = "left";
+        ctx.fillStyle = "#003366";
+        ctx.font = "bold 24px Arial";
+        ctx.fillText(`DL No: ${dl}`, 210, 155);
+        ctx.font = "20px Arial";
+        ctx.fillText("Valid Till: 31-12-2040 (NT)", 210, 190);
+
+        // 5. Smart Chip Area
+        ctx.fillStyle = "#f39c12"; // Chip Color
+        ctx.roundRect = (x, y, w, h, r) => {
+            ctx.beginPath(); ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r); ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.fill();
+        }
+        ctx.roundRect(175, 235, 130, 100, 10);
+        ctx.strokeStyle = "#9e7e10";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(185, 245, 110, 80);
+
+        // 6. Main Details Area
         ctx.fillStyle = "#333";
         ctx.font = "bold 22px Arial";
+        ctx.fillText("DOB : " + dob, 380, 390);
         
-        const name = document.getElementById('field_name').value;
-        const dl = document.getElementById('field_dl').value;
-        const addr = document.getElementById('field_add').value;
-        const dob = document.getElementById('field_dob').value;
+        ctx.font = "22px Arial";
+        ctx.fillText("Name    : " + name, 130, 460);
+        ctx.fillText("S/D/W of: FATHER NAME", 130, 495);
+        ctx.fillText("Add : " + addr, 130, 530);
 
-        ctx.fillText("DL No: " + dl, 200, 150);
-        ctx.fillText("Name  : " + name, 130, 450);
-        ctx.fillText("Add    : " + addr, 130, 490);
-        ctx.fillText("DOB   : " + dob, 350, 400);
-
-        // 4. Chip and Photo Box
-        ctx.fillStyle = "#f39c12"; // Gold chip
-        ctx.fillRect(150, 250, 100, 80);
-        
+        // 7. Photo Section
         ctx.strokeStyle = "#2980b9";
         ctx.lineWidth = 2;
-        ctx.strokeRect(750, 220, 180, 220); // Photo box
-        ctx.fillStyle = "#bdc3c7";
-        ctx.fillRect(751, 221, 178, 218);
-        ctx.fillStyle = "#fff";
-        ctx.fillText("PHOTO", 800, 330);
+        ctx.strokeRect(770, 210, 185, 225);
+        ctx.fillStyle = "#d1dce5";
+        ctx.fillRect(771, 211, 183, 223);
+        ctx.fillStyle = "#7f8c8d";
+        ctx.font = "bold 20px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("PHOTO", 862, 325);
 
-        // Show UI
+        // 8. Signatures
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#000";
+        ctx.font = "italic bold 25px cursive";
+        ctx.fillText("ThoduUser", 350, 595); // Example Sign
+        ctx.font = "bold 14px Arial";
+        ctx.fillText("Signature & ID of Issuing Authority", 130, 615);
+
         canvas.style.display = "block";
-        document.getElementById('downloadBtn').style.display = "inline-block";
+        document.getElementById('dlBtn').style.display = "block";
     }
 
-    function downloadCard() {
+    function download() {
         const link = document.createElement('a');
-        link.download = 'Thodu_Licence_Card.png';
+        link.download = 'Thodu_Licence_Exact.png';
         link.href = canvas.toDataURL();
         link.click();
     }
